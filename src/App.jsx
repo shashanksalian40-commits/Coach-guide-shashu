@@ -329,3 +329,221 @@ function ProgressChart({ clients, checkins }) {
         adherence: c.adherence ? parseFloat(c.adherence) : null,
       }))
       .filter((d) => !Number.isNaN(d.weight) || !Number.isNaN(d.adherence))
+      .sort((a, b) => (a.date > b.date ? 1 : -1));
+  }, [checkins, clientId]);
+
+  if (clients.length === 0) return null;
+
+  return (
+    <Card>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
+        <h2 className="disp" style={{ fontSize: 16, margin: 0, textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>
+          <LineChartIcon size={16} /> Progress
+        </h2>
+        <select
+          value={clientId}
+          onChange={(e) => setClientId(e.target.value)}
+          style={{ padding: "7px 10px", border: "1px solid #DCD5C4", borderRadius: 7, fontSize: 13 }}
+        >
+          {clients.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+      </div>
+      {data.length < 2 ? (
+        <div style={{ fontSize: 13, color: "#9b9486", padding: "20px 0", textAlign: "center" }}>
+          Need at least 2 check-ins with weight or adherence data to plot a trend.
+        </div>
+      ) : (
+        <div style={{ width: "100%", height: 220 }}>
+          <ResponsiveContainer>
+            <LineChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+              <CartesianGrid stroke="#EDE8DA" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#9b9486" }} />
+              <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#9b9486" }} />
+              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#9b9486" }} domain={[0, 100]} />
+              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #DCD5C4" }} />
+              <Line yAxisId="left" type="monotone" dataKey="weight" name="Weight" stroke={accent} strokeWidth={2} dot={{ r: 3 }} connectNulls />
+              <Line yAxisId="right" type="monotone" dataKey="adherence" name="Adherence %" stroke={ink} strokeWidth={2} dot={{ r: 3 }} connectNulls />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function CheckinsTab({ clients, checkins, setCheckins }) {
+  const [form, setForm] = useState({
+    clientId: clients[0]?.id || "",
+    date: today(),
+    weight: "",
+    adherence: "",
+    energy: "",
+    notes: "",
+    // body measurements
+    chest: "", waist: "", hips: "", thighs: "", arms: "", shoulders: "", calves: "", bodyFat: "",
+    // progress photo
+    progressPhoto: "",
+  });
+  const progressPhotoRef = React.useRef();
+
+  const handleProgressPhoto = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const b64 = await fileToBase64(file);
+    setForm((f) => ({ ...f, progressPhoto: b64 }));
+  };
+
+  useEffect(() => {
+    if (!form.clientId && clients[0]) setForm((f) => ({ ...f, clientId: clients[0].id }));
+  }, [clients]);
+
+  const addCheckin = () => {
+    if (!form.clientId) return;
+    setCheckins((prev) => [{ id: uid(), ...form }, ...prev]);
+    setForm((f) => ({
+      ...f,
+      weight: "", adherence: "", energy: "", notes: "",
+      chest: "", waist: "", hips: "", thighs: "", arms: "", shoulders: "", calves: "", bodyFat: "",
+      progressPhoto: "",
+    }));
+  };
+
+  const removeCheckin = (id) => setCheckins((prev) => prev.filter((c) => c.id !== id));
+
+  const clientName = (id) => clients.find((c) => c.id === id)?.name || "Unknown";
+
+  if (clients.length === 0) {
+    return (
+      <Card>
+        <EmptyState icon={CheckCircle2} title="Add a client first" body="Check-ins are logged per client. Add someone to your roster in the Clients tab." />
+      </Card>
+    );
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      <ProgressChart clients={clients} checkins={checkins} />
+      <Card>
+        <h2 className="disp" style={{ fontSize: 18, margin: "0 0 14px", textTransform: "uppercase" }}>Log a check-in</h2>
+
+        {/* Client + date */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#6b6557" }}>
+            Client
+            <select
+              value={form.clientId}
+              onChange={(e) => setForm({ ...form, clientId: e.target.value })}
+              style={{ display: "block", width: "100%", marginTop: 5, padding: "9px 11px", border: "1px solid #DCD5C4", borderRadius: 7, fontSize: 14 }}
+            >
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </label>
+          <TextField label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
+        </div>
+
+        {/* Vitals */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#9b9486", letterSpacing: "0.08em", textTransform: "uppercase", margin: "12px 0 8px" }}>Vitals</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+          <TextField label="Weight (kg / lbs)" value={form.weight} onChange={(v) => setForm({ ...form, weight: v })} placeholder="e.g. 78.2" />
+          <TextField label="Body fat %" value={form.bodyFat} onChange={(v) => setForm({ ...form, bodyFat: v })} placeholder="e.g. 22" />
+          <TextField label="Plan adherence %" value={form.adherence} onChange={(v) => setForm({ ...form, adherence: v })} placeholder="e.g. 90" />
+          <TextField label="Energy / mood (1-10)" value={form.energy} onChange={(v) => setForm({ ...form, energy: v })} placeholder="e.g. 7" />
+        </div>
+
+        {/* Body measurements */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#9b9486", letterSpacing: "0.08em", textTransform: "uppercase", margin: "12px 0 8px" }}>Body measurements (cm / in)</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+          <TextField label="Chest" value={form.chest} onChange={(v) => setForm({ ...form, chest: v })} placeholder="e.g. 100" />
+          <TextField label="Waist" value={form.waist} onChange={(v) => setForm({ ...form, waist: v })} placeholder="e.g. 82" />
+          <TextField label="Hips" value={form.hips} onChange={(v) => setForm({ ...form, hips: v })} placeholder="e.g. 96" />
+          <TextField label="Shoulders" value={form.shoulders} onChange={(v) => setForm({ ...form, shoulders: v })} placeholder="e.g. 118" />
+          <TextField label="Arms (flexed)" value={form.arms} onChange={(v) => setForm({ ...form, arms: v })} placeholder="e.g. 36" />
+          <TextField label="Thighs" value={form.thighs} onChange={(v) => setForm({ ...form, thighs: v })} placeholder="e.g. 56" />
+          <TextField label="Calves" value={form.calves} onChange={(v) => setForm({ ...form, calves: v })} placeholder="e.g. 38" />
+        </div>
+
+        {/* Progress photo */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#9b9486", letterSpacing: "0.08em", textTransform: "uppercase", margin: "12px 0 8px" }}>Progress photo</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
+          {form.progressPhoto ? (
+            <img src={form.progressPhoto} alt="progress" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, border: "1px solid #E4DECE" }} />
+          ) : (
+            <div style={{ width: 72, height: 72, borderRadius: 8, background: "#F6F3EC", border: "1px dashed #DCD5C4", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Users size={20} style={{ color: "#C4BCAC" }} />
+            </div>
+          )}
+          <div>
+            <input ref={progressPhotoRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleProgressPhoto} />
+            <PrimaryButton onClick={() => progressPhotoRef.current.click()} style={{ background: "transparent", color: ink, border: "1px solid #DCD5C4", padding: "7px 12px", fontSize: 12 }}>
+              {form.progressPhoto ? "Change photo" : "Attach photo"}
+            </PrimaryButton>
+            {form.progressPhoto && (
+              <button onClick={() => setForm((f) => ({ ...f, progressPhoto: "" }))} style={{ marginLeft: 8, fontSize: 12, color: "#9b9486", background: "none", border: "none", cursor: "pointer" }}>Remove</button>
+            )}
+          </div>
+        </div>
+
+        <TextArea label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} placeholder="Sleep, soreness, wins, struggles..." />
+        <PrimaryButton onClick={addCheckin}>
+          <Plus size={15} /> Save check-in
+        </PrimaryButton>
+      </Card>
+
+      <div style={{ display: "grid", gap: 10 }}>
+        {checkins.length === 0 && (
+          <Card>
+            <EmptyState icon={Flame} title="No check-ins logged" body="Once you log one, it'll show up here with a quick history per client." />
+          </Card>
+        )}
+        {checkins.map((c) => {
+          const client = clients.find((cl) => cl.id === c.clientId);
+          const hasMeasurements = c.chest || c.waist || c.hips || c.shoulders || c.arms || c.thighs || c.calves || c.bodyFat;
+          return (
+            <Card key={c.id}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start", flex: 1 }}>
+                  {client && <Avatar photo={client.photo} name={client.name} size={36} />}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>
+                      {clientName(c.clientId)} <span style={{ color: "#9b9486", fontWeight: 500 }}>· {c.date}</span>
+                    </div>
+
+                    {/* Vitals row */}
+                    <div style={{ fontSize: 12, color: "#6b6557", marginTop: 5, display: "flex", gap: 14, flexWrap: "wrap" }}>
+                      {c.weight && <span>⚖️ {c.weight} kg</span>}
+                      {c.bodyFat && <span>🔥 {c.bodyFat}% BF</span>}
+                      {c.adherence && <span>✅ {c.adherence}% adherence</span>}
+                      {c.energy && <span>⚡ {c.energy}/10 energy</span>}
+                    </div>
+
+                    {/* Measurements grid */}
+                    {hasMeasurements && (
+                      <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: "4px 16px" }}>
+                        {[
+                          { l: "Chest", v: c.chest },
+                          { l: "Waist", v: c.waist },
+                          { l: "Hips", v: c.hips },
+                          { l: "Shoulders", v: c.shoulders },
+                          { l: "Arms", v: c.arms },
+                          { l: "Thighs", v: c.thighs },
+                          { l: "Calves", v: c.calves },
+                        ].filter((m) => m.v).map((m) => (
+                          <span key={m.l} style={{ fontSize: 11, color: "#6b6557" }}>
+                            <span style={{ fontWeight: 600 }}>{m.l}:</span> {m.v}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {c.notes && <div style={{ fontSize: 13, marginTop: 6, color: "#3a362d" }}>{c.notes}</div>}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                  <IconBtn onClick={() => removeCheckin(c.id)} title="Delete check-in">
+                    <Trash2 size={16} />
+                  </IconBtn>
