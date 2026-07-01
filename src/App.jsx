@@ -546,4 +546,215 @@ function CheckinsTab({ clients, checkins, setCheckins }) {
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
                   <IconBtn onClick={() => removeCheckin(c.id)} title="Delete check-in">
                     <Trash2 size={16} />
-                  </IconBtn>
+                  </IconBtn> 
+                                    {c.progressPhoto && (
+                    <img src={c.progressPhoto} alt="progress" style={{ width: 60, height: 60, objectFit: "cover", borderRadius: 7, border: "1px solid #E4DECE", cursor: "pointer" }}
+                      onClick={() => window.open(c.progressPhoto, "_blank")}
+                    />
+                  )}
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ---------- LIBRARY (shared shape for workouts & recipes) ----------
+function LibraryTab({ items, setItems, kind }) {
+  const isWorkout = kind === "workout";
+  const [adding, setAdding] = useState(false);
+  const [query, setQuery] = useState("");
+  const [form, setForm] = useState(
+    isWorkout
+      ? { title: "", category: "", duration: "", details: "" }
+      : { title: "", category: "", macros: "", details: "" }
+  );
+
+  const reset = () =>
+    setForm(isWorkout ? { title: "", category: "", duration: "", details: "" } : { title: "", category: "", macros: "", details: "" });
+
+  const addItem = () => {
+    if (!form.title.trim()) return;
+    setItems((prev) => [{ id: uid(), ...form }, ...prev]);
+    reset();
+    setAdding(false);
+  };
+
+  const removeItem = (id) => setItems((prev) => prev.filter((i) => i.id !== id));
+
+  const filtered = items.filter(
+    (i) =>
+      i.title.toLowerCase().includes(query.toLowerCase()) ||
+      (i.category || "").toLowerCase().includes(query.toLowerCase())
+  );
+
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+        <h2 className="disp" style={{ fontSize: 20, margin: 0, textTransform: "uppercase" }}>
+          {isWorkout ? "Workout Library" : "Recipe Library"}
+        </h2>
+        <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ position: "relative" }}>
+            <Search size={14} style={{ position: "absolute", left: 10, top: 11, color: "#9b9486" }} />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={isWorkout ? "Search workouts..." : "Search recipes..."}
+              style={{ padding: "8px 10px 8px 30px", border: "1px solid #DCD5C4", borderRadius: 7, fontSize: 13, width: 200 }}
+            />
+          </div>
+          <PrimaryButton onClick={() => setAdding((v) => !v)}>
+            <Plus size={15} /> Add
+          </PrimaryButton>
+        </div>
+      </div>
+
+      {adding && (
+        <Card>
+          <TextField label="Title" value={form.title} onChange={(v) => setForm({ ...form, title: v })} placeholder={isWorkout ? "e.g. Upper Body Push — Day A" : "e.g. High-Protein Overnight Oats"} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <TextField label="Category" value={form.category} onChange={(v) => setForm({ ...form, category: v })} placeholder={isWorkout ? "e.g. Strength / Hypertrophy" : "e.g. Breakfast / High-protein"} />
+            {isWorkout ? (
+              <TextField label="Duration" value={form.duration} onChange={(v) => setForm({ ...form, duration: v })} placeholder="e.g. 45 min" />
+            ) : (
+              <TextField label="Macros" value={form.macros} onChange={(v) => setForm({ ...form, macros: v })} placeholder="e.g. 420 kcal · 38P 40C 12F" />
+            )}
+          </div>
+          <TextArea label={isWorkout ? "Exercises / structure" : "Ingredients & method"} rows={5} value={form.details} onChange={(v) => setForm({ ...form, details: v })} placeholder={isWorkout ? "1. Bench Press 4x6\n2. Incline DB Press 3x10\n..." : "Ingredients:\n- ...\nMethod:\n1. ..."} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <PrimaryButton onClick={addItem}>Save to library</PrimaryButton>
+            <PrimaryButton onClick={() => setAdding(false)} style={{ background: "transparent", color: ink, border: "1px solid #DCD5C4" }}>
+              Cancel
+            </PrimaryButton>
+          </div>
+        </Card>
+      )}
+
+      {filtered.length === 0 && (
+        <Card>
+          <EmptyState
+            icon={isWorkout ? Dumbbell : UtensilsCrossed}
+            title={items.length === 0 ? "Library is empty" : "No matches"}
+            body={items.length === 0 ? `Build this once and reuse it across every client you onboard.` : "Try a different search term."}
+          />
+        </Card>
+      )}
+
+      <div style={{ display: "grid", gap: 10 }}>
+        {filtered.map((i) => (
+          <Card key={i.id}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+              <div>
+                <div className="disp" style={{ fontSize: 15, fontWeight: 600 }}>{i.title}</div>
+                <div style={{ fontSize: 12, color: "#9b9486", marginTop: 2 }}>
+                  {[i.category, isWorkout ? i.duration : i.macros].filter(Boolean).join(" · ")}
+                </div>
+              </div>
+              <IconBtn onClick={() => removeItem(i.id)} title="Remove">
+                <Trash2 size={16} />
+              </IconBtn>
+            </div>
+            {i.details && (
+              <div style={{ fontSize: 13, marginTop: 10, whiteSpace: "pre-wrap", color: "#3a362d", lineHeight: 1.5 }}>{i.details}</div>
+            )}
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+// ---------- CLIENT PORTAL (shared, public-facing) ----------
+function ClientPortal({ sharedClients, submitCheckin }) {
+  const [clientId, setClientId] = useState("");
+  const [form, setForm] = useState({
+    weight: "", adherence: "", energy: "", notes: "",
+    chest: "", waist: "", hips: "", thighs: "", arms: "", shoulders: "", calves: "", bodyFat: "",
+    progressPhoto: "",
+  });
+  const [done, setDone] = useState(false);
+  const progressPhotoRef = React.useRef();
+
+  const handleProgressPhoto = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const b64 = await fileToBase64(file);
+    setForm((f) => ({ ...f, progressPhoto: b64 }));
+  };
+
+  const submit = () => {
+    if (!clientId) return;
+    submitCheckin({ id: uid(), clientId, date: today(), ...form });
+    setForm({ weight: "", adherence: "", energy: "", notes: "", chest: "", waist: "", hips: "", thighs: "", arms: "", shoulders: "", calves: "", bodyFat: "", progressPhoto: "" });
+    setDone(true);
+    setTimeout(() => setDone(false), 3500);
+  };
+
+  return (
+    <div style={{ maxWidth: 520, margin: "40px auto" }}>
+      <Card>
+        <h2 className="disp" style={{ fontSize: 20, margin: "0 0 6px", textTransform: "uppercase" }}>Daily check-in</h2>
+        <p style={{ fontSize: 13, color: "#6b6557", margin: "0 0 16px" }}>
+          Pick your name and log today's numbers. Your coach sees this instantly.
+        </p>
+
+        {sharedClients.length === 0 ? (
+          <EmptyState icon={Users} title="No clients set up yet" body="Ask your coach to add you in CoachOS first." />
+        ) : done ? (
+          <div style={{ textAlign: "center", padding: "30px 0" }}>
+            <CheckCircle2 size={28} color={accent} style={{ marginBottom: 8 }} />
+            <div className="disp" style={{ fontSize: 16 }}>Check-in sent</div>
+            <div style={{ fontSize: 13, color: "#6b6557", marginTop: 4 }}>Nice work. See you tomorrow.</div>
+          </div>
+        ) : (
+          <>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#6b6557", marginBottom: 12 }}>
+              Who are you?
+              <select value={clientId} onChange={(e) => setClientId(e.target.value)}
+                style={{ display: "block", width: "100%", marginTop: 5, padding: "9px 11px", border: "1px solid #DCD5C4", borderRadius: 7, fontSize: 14 }}>
+                <option value="">Select your name</option>
+                {sharedClients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </label>
+
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#9b9486", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>Vitals</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <TextField label="Weight (kg / lbs)" value={form.weight} onChange={(v) => setForm({ ...form, weight: v })} placeholder="e.g. 78.2" />
+              <TextField label="Body fat %" value={form.bodyFat} onChange={(v) => setForm({ ...form, bodyFat: v })} placeholder="e.g. 22" />
+              <TextField label="Plan adherence %" value={form.adherence} onChange={(v) => setForm({ ...form, adherence: v })} placeholder="e.g. 90" />
+              <TextField label="Energy / mood (1-10)" value={form.energy} onChange={(v) => setForm({ ...form, energy: v })} placeholder="e.g. 7" />
+            </div>
+
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#9b9486", letterSpacing: "0.08em", textTransform: "uppercase", margin: "12px 0 8px" }}>Body measurements (cm / in)</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <TextField label="Chest" value={form.chest} onChange={(v) => setForm({ ...form, chest: v })} placeholder="e.g. 100" />
+              <TextField label="Waist" value={form.waist} onChange={(v) => setForm({ ...form, waist: v })} placeholder="e.g. 82" />
+              <TextField label="Hips" value={form.hips} onChange={(v) => setForm({ ...form, hips: v })} placeholder="e.g. 96" />
+              <TextField label="Shoulders" value={form.shoulders} onChange={(v) => setForm({ ...form, shoulders: v })} placeholder="e.g. 118" />
+              <TextField label="Arms (flexed)" value={form.arms} onChange={(v) => setForm({ ...form, arms: v })} placeholder="e.g. 36" />
+              <TextField label="Thighs" value={form.thighs} onChange={(v) => setForm({ ...form, thighs: v })} placeholder="e.g. 56" />
+              <TextField label="Calves" value={form.calves} onChange={(v) => setForm({ ...form, calves: v })} placeholder="e.g. 38" />
+            </div>
+
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#9b9486", letterSpacing: "0.08em", textTransform: "uppercase", margin: "12px 0 8px" }}>Progress photo</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
+              {form.progressPhoto ? (
+                <img src={form.progressPhoto} alt="progress" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: "1px solid #E4DECE" }} />
+              ) : (
+                <div style={{ width: 64, height: 64, borderRadius: 8, background: "#F6F3EC", border: "1px dashed #DCD5C4", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Users size={18} style={{ color: "#C4BCAC" }} />
+                </div>
+              )}
+              <div>
+                <input ref={progressPhotoRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleProgressPhoto} />
+                <PrimaryButton onClick={() => progressPhotoRef.current.click()} style={{ background: "transparent", color: ink, border: "1px solid #DCD5C4", padding: "7px 12px", fontSize: 12 }}>
+                  {form.progressPhoto ? "Change photo" : "Attach photo"}
+                </PrimaryButton>
+              </div>
+            </div>
+
+            <TextArea label="Anything your coach should know?" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} placeholder="Sleep, soreness, wins, struggles..." />
+
