@@ -758,3 +758,249 @@ function ClientPortal({ sharedClients, submitCheckin }) {
 
             <TextArea label="Anything your coach should know?" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} placeholder="Sleep, soreness, wins, struggles..." />
 
+            <PrimaryButton onClick={submit} style={{ width: "100%", justifyContent: "center" }}>
+              Submit check-in
+            </PrimaryButton>
+          </>
+        )}
+      </Card>
+    </div>
+  );
+}
+function Header({ activeTab, setActiveTab, clientCount, onLock }) {
+  return (
+    <div style={{ borderBottom: `3px solid ${ink}`, background: "#F6F3EC", position: "sticky", top: 0, zIndex: 10 }}>
+      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "20px 24px 0" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+          <h1 className="disp" style={{ fontSize: 28, fontWeight: 700, margin: 0, textTransform: "uppercase" }}>
+            Coach<span style={{ color: accent }}>OS</span>
+            <span style={{ fontSize: 11, fontWeight: 500, color: "#9b9486", marginLeft: 10, letterSpacing: "0.04em", fontFamily: "Inter, sans-serif", textTransform: "none" }}>
+              Coach Dashboard
+            </span>
+          </h1>
+          <button onClick={onLock} style={{ fontSize: 12, fontWeight: 600, color: "#9b9486", background: "none", border: "1px solid #DCD5C4", borderRadius: 6, padding: "5px 12px", cursor: "pointer" }}>
+            🔒 Lock & exit
+          </button>
+        </div>
+        <div style={{ fontSize: 12, color: "#9b9486", margin: "6px 0 0" }}>{clientCount} active client{clientCount === 1 ? "" : "s"}</div>
+        <nav style={{ display: "flex", gap: 4, marginTop: 14, overflowX: "auto" }}>
+          {TABS.map((t) => {
+            const Icon = t.icon;
+            const active = activeTab === t.id;
+            return (
+              <button key={t.id} onClick={() => setActiveTab(t.id)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6, padding: "10px 16px",
+                  background: active ? ink : "transparent", color: active ? "#F6F3EC" : ink,
+                  border: "none", borderRadius: "8px 8px 0 0", fontSize: 13, fontWeight: 600,
+                  cursor: "pointer", whiteSpace: "nowrap", transition: "background 0.15s",
+                }}
+              >
+                <Icon size={15} />{t.label}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+    </div>
+  );
+}
+
+const DEFAULT_PIN = "1234";
+
+function PinScreen({ storedPin, onUnlock }) {
+  const [digits, setDigits] = useState("");
+  const [shake, setShake] = useState(false);
+  const [settingPin, setSettingPin] = useState(false);
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [pinMsg, setPinMsg] = useState({ text: "", ok: false });
+
+  const pressDigit = (d) => {
+    if (digits.length >= 4) return;
+    const next = digits + d;
+    setDigits(next);
+    if (next.length === 4) {
+      setTimeout(() => {
+        if (next === (storedPin || DEFAULT_PIN)) {
+          onUnlock();
+        } else {
+          setShake(true);
+          setTimeout(() => { setShake(false); setDigits(""); }, 600);
+        }
+      }, 150);
+    }
+  };
+
+  const delDigit = () => setDigits((d) => d.slice(0, -1));
+
+  if (settingPin) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div style={{ width: "100%", maxWidth: 340 }}>
+          <Card>
+            <h2 className="disp" style={{ fontSize: 18, textTransform: "uppercase", margin: "0 0 6px" }}>Set your PIN</h2>
+            <p style={{ fontSize: 13, color: "#6b6557", marginBottom: 16 }}>Choose a 4-digit PIN to protect your coach dashboard.</p>
+            <TextField label="New PIN (4 digits)" type="password" value={newPin} onChange={(v) => setNewPin(v.replace(/\D/g, "").slice(0, 4))} placeholder="e.g. 5678" />
+            <TextField label="Confirm PIN" type="password" value={confirmPin} onChange={(v) => setConfirmPin(v.replace(/\D/g, "").slice(0, 4))} placeholder="Repeat PIN" />
+            {pinMsg.text && (
+              <div style={{ fontSize: 12, marginBottom: 10, color: pinMsg.ok ? "#22a45d" : accent }}>{pinMsg.text}</div>
+            )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <PrimaryButton onClick={() => {
+                if (newPin.length < 4) { setPinMsg({ text: "PIN must be 4 digits", ok: false }); return; }
+                if (newPin !== confirmPin) { setPinMsg({ text: "PINs don't match", ok: false }); return; }
+                storageClient.set("coachos:pin", newPin, false).catch(() => {});
+                setPinMsg({ text: "PIN saved! Use it next time.", ok: true });
+                setTimeout(() => { setSettingPin(false); setNewPin(""); setConfirmPin(""); setPinMsg({ text: "", ok: false }); }, 2000);
+              }}>Save PIN</PrimaryButton>
+              <PrimaryButton onClick={() => { setSettingPin(false); setNewPin(""); setConfirmPin(""); }}
+                style={{ background: "transparent", color: ink, border: "1px solid #DCD5C4" }}>Cancel</PrimaryButton>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <h1 className="disp" style={{ fontSize: 32, fontWeight: 700, textTransform: "uppercase", margin: "0 0 6px" }}>
+        Coach<span style={{ color: accent }}>OS</span>
+      </h1>
+      <p style={{ fontSize: 13, color: "#6b6557", margin: "0 0 36px" }}>Enter your coach PIN to access the dashboard</p>
+      <div style={{ display: "flex", gap: 14, marginBottom: 36, animation: shake ? "shake 0.4s ease" : "none" }}>
+        <style>{`@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}`}</style>
+        {[0,1,2,3].map((i) => (
+          <div key={i} style={{
+            width: 16, height: 16, borderRadius: "50%",
+            background: i < digits.length ? ink : "transparent",
+            border: `2px solid ${i < digits.length ? ink : "#C4BCAC"}`,
+            transition: "background 0.12s",
+          }} />
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 76px)", gap: 10 }}>
+        {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((k, i) => (
+          <button key={i}
+            onClick={() => k === "⌫" ? delDigit() : k !== "" ? pressDigit(String(k)) : null}
+            style={{
+              height: 76, borderRadius: 14,
+              border: k === "" ? "none" : "1px solid #DCD5C4",
+              background: k === "" ? "transparent" : "#fff",
+              fontSize: k === "⌫" ? 20 : 24, fontWeight: 600,
+              cursor: k === "" ? "default" : "pointer", color: ink,
+              boxShadow: k !== "" ? "0 1px 4px rgba(0,0,0,0.07)" : "none",
+              transition: "background 0.1s",
+            }}
+            onMouseDown={(e) => { if (k !== "") e.currentTarget.style.background = "#F6F3EC"; }}
+            onMouseUp={(e) => { if (k !== "") e.currentTarget.style.background = "#fff"; }}
+          >{k}</button>
+        ))}
+      </div>
+      <button onClick={() => setSettingPin(true)}
+        style={{ marginTop: 32, fontSize: 12, color: "#9b9486", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+        {storedPin ? "Change PIN" : `Set a custom PIN (default: ${DEFAULT_PIN})`}
+      </button>
+    </div>
+  );
+}
+
+function ClientLanding({ sharedClients, submitCheckin, onCoachLogin }) {
+  return (
+    <div style={{ minHeight: "100vh", background: "#F6F3EC" }}>
+      <div style={{ maxWidth: 520, margin: "0 auto", padding: "32px 20px 60px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
+          <h1 className="disp" style={{ fontSize: 26, fontWeight: 700, textTransform: "uppercase", margin: 0 }}>
+            Coach<span style={{ color: accent }}>OS</span>
+          </h1>
+          <button onClick={onCoachLogin}
+            style={{ fontSize: 12, fontWeight: 600, color: "#9b9486", background: "none", border: "1px solid #DCD5C4", borderRadius: 6, padding: "6px 14px", cursor: "pointer" }}>
+            🔐 Coach login
+          </button>
+        </div>
+        <ClientPortal sharedClients={sharedClients} submitCheckin={submitCheckin} />
+      </div>
+    </div>
+  );
+}
+
+export default function CoachOS() {
+  const [view, setView] = useState("client");
+  const [activeTab, setActiveTab] = useState("clients");
+  const [storedPin, setStoredPin] = useState(null);
+
+  const [clients, setClients, clientsLoaded] = useStore("coachos:clients", []);
+  const [checkins, setCheckins, checkinsLoaded, refreshCheckins] = useStore("coachos:checkins", [], true);
+  const [sharedClients, setSharedClients, sharedClientsLoaded] = useStore("coachos:shared-clients", [], true);
+  const [workouts, setWorkouts, workoutsLoaded] = useStore("coachos:workouts", []);
+  const [recipes, setRecipes, recipesLoaded] = useStore("coachos:recipes", []);
+
+  const ready = clientsLoaded && checkinsLoaded && workoutsLoaded && recipesLoaded && sharedClientsLoaded;
+
+  useEffect(() => {
+    storageClient.get("coachos:pin", false)
+      .then((r) => { if (r?.value) setStoredPin(r.value); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!clientsLoaded) return;
+    setSharedClients(clients.map((c) => ({ id: c.id, name: c.name })));
+  }, [clients, clientsLoaded]);
+
+  useEffect(() => {
+    if (view !== "client") return;
+    const t = setInterval(() => refreshCheckins(), 5000);
+    return () => clearInterval(t);
+  }, [view, refreshCheckins]);
+
+  const submitCheckin = (entry) => setCheckins((prev) => [entry, ...prev]);
+
+  if (!ready) {
+    return <Shell><div style={{ padding: 60, textAlign: "center", color: "#9b9486", fontSize: 13 }}>Loading…</div></Shell>;
+  }
+
+  if (view === "client") {
+    return (
+      <Shell>
+        <ClientLanding
+          sharedClients={sharedClients}
+          submitCheckin={submitCheckin}
+          onCoachLogin={() => setView("pin")}
+        />
+      </Shell>
+    );
+  }
+
+  if (view === "pin") {
+    return (
+      <Shell>
+        <PinScreen
+          storedPin={storedPin}
+          onUnlock={() => {
+            storageClient.get("coachos:pin", false).then((r) => { if (r?.value) setStoredPin(r.value); }).catch(() => {});
+            setView("coach");
+          }}
+        />
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell>
+      <Header
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        clientCount={clients.length}
+        onLock={() => setView("client")}
+      />
+      <main style={{ maxWidth: 1080, margin: "0 auto", padding: "24px 24px 60px" }}>
+        {activeTab === "clients"  && <ClientsTab clients={clients} setClients={setClients} checkins={checkins} />}
+        {activeTab === "checkins" && <CheckinsTab clients={clients} checkins={checkins} setCheckins={setCheckins} />}
+        {activeTab === "workouts" && <LibraryTab items={workouts} setItems={setWorkouts} kind="workout" />}
+        {activeTab === "recipes"  && <LibraryTab items={recipes}  setItems={setRecipes}  kind="recipe" />}
+      </main>
+    </Shell>
+  );
+}
