@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Plus, X, Dumbbell, UtensilsCrossed, CheckCircle2, Users, Flame, ChevronRight, Trash2, Search, LineChart as LineChartIcon, Link2 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import storageClient from "./storageClient";
@@ -563,18 +563,77 @@ function CheckinsTab({ clients, checkins, setCheckins }) {
 }
 
 // ---------- LIBRARY (shared shape for workouts & recipes) ----------
+function ExerciseRow({ exercise, onChange, onRemove }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 60px 60px",
+        gap: 8,
+        marginBottom: 8,
+        padding: 10,
+        border: "1px solid #EDE8DA",
+        borderRadius: 8,
+        background: "#FBF9F4",
+      }}
+    >
+      <input
+        value={exercise.name}
+        onChange={(e) => onChange({ ...exercise, name: e.target.value })}
+        placeholder="Exercise name (e.g. Bench Press)"
+        style={{ gridColumn: "1 / -1", padding: "8px 10px", border: "1px solid #DCD5C4", borderRadius: 7, fontSize: 13, boxSizing: "border-box" }}
+      />
+      <input
+        value={exercise.sets}
+        onChange={(e) => onChange({ ...exercise, sets: e.target.value })}
+        placeholder="Sets"
+        style={{ padding: "8px 10px", border: "1px solid #DCD5C4", borderRadius: 7, fontSize: 13, boxSizing: "border-box" }}
+      />
+      <input
+        value={exercise.reps}
+        onChange={(e) => onChange({ ...exercise, reps: e.target.value })}
+        placeholder="Reps"
+        style={{ padding: "8px 10px", border: "1px solid #DCD5C4", borderRadius: 7, fontSize: 13, boxSizing: "border-box" }}
+      />
+      <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8 }}>
+        <input
+          value={exercise.video}
+          onChange={(e) => onChange({ ...exercise, video: e.target.value })}
+          placeholder="YouTube video link (optional)"
+          style={{ flex: 1, padding: "8px 10px", border: "1px solid #DCD5C4", borderRadius: 7, fontSize: 13, boxSizing: "border-box" }}
+        />
+        <IconBtn onClick={onRemove} title="Remove exercise">
+          <Trash2 size={16} />
+        </IconBtn>
+      </div>
+    </div>
+  );
+}
+
 function LibraryTab({ items, setItems, kind }) {
   const isWorkout = kind === "workout";
   const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
   const [form, setForm] = useState(
     isWorkout
-      ? { title: "", category: "", duration: "", details: "" }
+      ? { title: "", category: "", duration: "", exercises: [] }
       : { title: "", category: "", macros: "", details: "" }
   );
 
   const reset = () =>
-    setForm(isWorkout ? { title: "", category: "", duration: "", details: "" } : { title: "", category: "", macros: "", details: "" });
+    setForm(isWorkout ? { title: "", category: "", duration: "", exercises: [] } : { title: "", category: "", macros: "", details: "" });
+
+  const addExerciseRow = () => {
+    setForm((f) => ({ ...f, exercises: [...f.exercises, { id: uid(), name: "", sets: "", reps: "", video: "" }] }));
+  };
+
+  const updateExerciseRow = (id, next) => {
+    setForm((f) => ({ ...f, exercises: f.exercises.map((ex) => (ex.id === id ? next : ex)) }));
+  };
+
+  const removeExerciseRow = (id) => {
+    setForm((f) => ({ ...f, exercises: f.exercises.filter((ex) => ex.id !== id) }));
+  };
 
   const addItem = () => {
     if (!form.title.trim()) return;
@@ -624,7 +683,29 @@ function LibraryTab({ items, setItems, kind }) {
               <TextField label="Macros" value={form.macros} onChange={(v) => setForm({ ...form, macros: v })} placeholder="e.g. 420 kcal · 38P 40C 12F" />
             )}
           </div>
-          <TextArea label={isWorkout ? "Exercises / structure" : "Ingredients & method"} rows={5} value={form.details} onChange={(v) => setForm({ ...form, details: v })} placeholder={isWorkout ? "1. Bench Press 4x6\n2. Incline DB Press 3x10\n..." : "Ingredients:\n- ...\nMethod:\n1. ..."} />
+
+          {isWorkout ? (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#6b6557", marginBottom: 8 }}>Exercises</div>
+              {form.exercises.length === 0 && (
+                <div style={{ fontSize: 12, color: "#9b9486", marginBottom: 8 }}>No exercises added yet — tap below to add your first one.</div>
+              )}
+              {form.exercises.map((ex) => (
+                <ExerciseRow
+                  key={ex.id}
+                  exercise={ex}
+                  onChange={(next) => updateExerciseRow(ex.id, next)}
+                  onRemove={() => removeExerciseRow(ex.id)}
+                />
+              ))}
+              <PrimaryButton onClick={addExerciseRow} style={{ background: "transparent", color: ink, border: "1px solid #DCD5C4", padding: "7px 12px", fontSize: 12, marginTop: 4 }}>
+                <Plus size={14} /> Add exercise
+              </PrimaryButton>
+            </div>
+          ) : (
+            <TextArea label="Ingredients & method" rows={5} value={form.details} onChange={(v) => setForm({ ...form, details: v })} placeholder={"Ingredients:\n- ...\nMethod:\n1. ..."} />
+          )}
+
           <div style={{ display: "flex", gap: 8 }}>
             <PrimaryButton onClick={addItem}>Save to library</PrimaryButton>
             <PrimaryButton onClick={() => setAdding(false)} style={{ background: "transparent", color: ink, border: "1px solid #DCD5C4" }}>
@@ -658,6 +739,54 @@ function LibraryTab({ items, setItems, kind }) {
                 <Trash2 size={16} />
               </IconBtn>
             </div>
+
+            {/* New structured exercises (with per-exercise video) */}
+            {isWorkout && i.exercises && i.exercises.length > 0 && (
+              <div style={{ marginTop: 10, display: "grid", gap: 4 }}>
+                {i.exercises.map((ex) => (
+                  <div
+                    key={ex.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "8px 0",
+                      borderTop: "1px solid #EDE8DA",
+                    }}
+                  >
+                    <div style={{ fontSize: 13, color: "#3a362d" }}>
+                      <span style={{ fontWeight: 600 }}>{ex.name}</span>
+                      {(ex.sets || ex.reps) && (
+                        <span style={{ color: "#9b9486" }}> · {ex.sets}x{ex.reps}</span>
+                      )}
+                    </div>
+                    {ex.video ? (
+                      <a
+                        href={ex.video}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: accent,
+                          textDecoration: "none",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        ▶ Watch
+                      </a>
+                    ) : (
+                      <span style={{ fontSize: 11, color: "#C4BCAC" }}>No video yet</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Legacy freeform text (old workout entries typed before this update, and all recipes) */}
             {i.details && (
               <div style={{ fontSize: 13, marginTop: 10, whiteSpace: "pre-wrap", color: "#3a362d", lineHeight: 1.5 }}>{i.details}</div>
             )}
@@ -1004,3 +1133,4 @@ export default function CoachOS() {
     </Shell>
   );
 }
+
